@@ -23,6 +23,14 @@ pipeline {
                 sh 'docker run --rm --network=host $TEST_IMAGE'
             }
         }
+        stage('Run Selenium Tests') {
+            steps {
+                sh '''
+                    docker build -t selenium-tests .
+                    docker run --rm selenium-tests
+                '''
+            }
+        }
     }
 
     post {
