@@ -39,20 +39,34 @@ class TaskManagerTest(unittest.TestCase):
         self.assertNotIn("<li class=\"list-group-item\"", self.driver.page_source)
 
     def test_4_add_multiple_tasks(self):
-        for i in range(3):
-            self.driver.find_element(By.NAME, "task").send_keys(f"Task {i}")
+        tasks_to_add = ["Task A", "Task B", "Task C"]
+        for task in tasks_to_add:
+            self.driver.get(self.base_url)
+            self.driver.find_element(By.NAME, "task").send_keys(task)
             self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-        page = self.driver.page_source
-        self.assertIn("Task 0", page)
-        self.assertIn("Task 1", page)
-        self.assertIn("Task 2", page)
+            time.sleep(0.5)
+    
+        task_elements = self.driver.find_elements(By.CLASS_NAME, "list-group-item")
+        task_texts = [task.text for task in task_elements]
+        for task in tasks_to_add:
+            assert any(task in text for text in task_texts)
+
 
     def test_5_delete_task(self):
-        self.driver.find_element(By.NAME, "task").send_keys("Delete Me")
-        self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-        self.driver.find_element(By.LINK_TEXT, "Delete").click()
+        self.driver.get(self.base_url)
+        self.add_task("Delete Me")
+    
+        delete_button = self.driver.find_element(By.LINK_TEXT, "Delete")
+        delete_button.click()
+    
+        # Accept the confirmation dialog
+        alert = self.driver.switch_to.alert
+        alert.accept()
+    
         time.sleep(1)
-        self.assertNotIn("Delete Me", self.driver.page_source)
+        tasks = self.driver.find_elements(By.CLASS_NAME, "list-group-item")
+        assert all("Delete Me" not in task.text for task in tasks)
+
 
     def test_6_persistence(self):
         self.driver.find_element(By.NAME, "task").send_keys("Persistent Task")
@@ -67,12 +81,18 @@ class TaskManagerTest(unittest.TestCase):
         self.assertNotIn(xss, self.driver.page_source)
 
     def test_8_empty_state_message(self):
-        if "Delete" in self.driver.page_source:
-            delete_buttons = self.driver.find_elements(By.LINK_TEXT, "Delete")
-            for button in delete_buttons:
-                button.click()
-                time.sleep(0.5)
-        self.assertIn("No tasks yet", self.driver.page_source)
+        self.driver.get(self.base_url)
+        delete_links = self.driver.find_elements(By.LINK_TEXT, "Delete")
+        for link in delete_links:
+            link.click()
+            alert = self.driver.switch_to.alert
+            alert.accept()
+            time.sleep(0.5)
+    
+        self.driver.get(self.base_url)
+        message = self.driver.find_element(By.CLASS_NAME, "alert-info").text
+        assert "No tasks yet" in message
+
 
     def test_9_add_button_present(self):
         btn = self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
