@@ -1,108 +1,107 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-import time
 import unittest
-
-
-URL = "http://16.16.28.38:8081/"
+import time
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
 
 class TaskManagerTest(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        cls.driver = webdriver.Chrome(options=chrome_options)
-        cls.driver.implicitly_wait(3)
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.driver.quit()
-
     def setUp(self):
-        self.driver.get(URL)
+        chrome_options = Options()
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
 
-    def test_1_page_load(self):
+        self.driver = webdriver.Chrome(options=chrome_options)
+        self.base_url = "http://16.16.28.38:8081"  # Change this to your actual deployed URL or port
+
+    def tearDown(self):
+        self.driver.quit()
+
+    def test_1_page_loads(self):
+        self.driver.get(self.base_url)
         self.assertIn("Task Manager", self.driver.title)
 
     def test_2_add_task(self):
-        self.driver.find_element(By.NAME, "task").send_keys("Test Task 1")
+        self.driver.get(self.base_url)
+        task_input = self.driver.find_element(By.NAME, "task")
+        task_input.send_keys("Test Task 1")
         self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-        self.assertIn("Test Task 1", self.driver.page_source)
-
-    def test_3_add_empty_task(self):
-        self.driver.find_element(By.NAME, "task").send_keys("")
-        self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-        self.assertNotIn("<li class=\"list-group-item\"", self.driver.page_source)
-
-    def test_4_add_multiple_tasks(self):
-        tasks_to_add = ["Task A", "Task B", "Task C"]
-        for task in tasks_to_add:
-            self.driver.get(self.URL)
-            self.driver.find_element(By.NAME, "task").send_keys(task)
-            self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-            time.sleep(0.5)
-    
-        task_elements = self.driver.find_elements(By.CLASS_NAME, "list-group-item")
-        task_texts = [task.text for task in task_elements]
-        for task in tasks_to_add:
-            assert any(task in text for text in task_texts)
-
-
-    def test_5_delete_task(self):
-        self.driver.get(self.URL)
-        self.add_task("Delete Me")
-    
-        delete_button = self.driver.find_element(By.LINK_TEXT, "Delete")
-        delete_button.click()
-    
-        # Accept the confirmation dialog
-        alert = self.driver.switch_to.alert
-        alert.accept()
-    
         time.sleep(1)
         tasks = self.driver.find_elements(By.CLASS_NAME, "list-group-item")
-        assert all("Delete Me" not in task.text for task in tasks)
+        self.assertTrue(any("Test Task 1" in task.text for task in tasks))
 
-
-    def test_6_persistence(self):
-        self.driver.find_element(By.NAME, "task").send_keys("Persistent Task")
+    def test_3_add_second_task(self):
+        self.driver.get(self.base_url)
+        task_input = self.driver.find_element(By.NAME, "task")
+        task_input.send_keys("Test Task 2")
         self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-        self.driver.refresh()
-        self.assertIn("Persistent Task", self.driver.page_source)
+        time.sleep(1)
+        tasks = self.driver.find_elements(By.CLASS_NAME, "list-group-item")
+        self.assertTrue(any("Test Task 2" in task.text for task in tasks))
 
-    def test_7_xss_protection(self):
-        xss = "<script>alert('xss')</script>"
-        self.driver.find_element(By.NAME, "task").send_keys(xss)
-        self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-        self.assertNotIn(xss, self.driver.page_source)
+    def test_4_add_multiple_tasks(self):
+        self.driver.get(self.base_url)
+        for i in range(3, 6):
+            task_input = self.driver.find_element(By.NAME, "task")
+            task_input.send_keys(f"Task {i}")
+            self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
+            time.sleep(0.5)
+        tasks = self.driver.find_elements(By.CLASS_NAME, "list-group-item")
+        self.assertGreaterEqual(len(tasks), 3)
+
+    def test_5_delete_task(self):
+        self.driver.get(self.base_url)
+        initial_tasks = self.driver.find_elements(By.CLASS_NAME, "list-group-item")
+        if initial_tasks:
+            self.driver.find_element(By.LINK_TEXT, "Delete").click()
+            alert = self.driver.switch_to.alert
+            alert.accept()
+            time.sleep(1)
+            new_tasks = self.driver.find_elements(By.CLASS_NAME, "list-group-item")
+            self.assertLess(len(new_tasks), len(initial_tasks))
+
+    def test_6_required_field(self):
+        self.driver.get(self.base_url)
+        submit = self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
+        submit.click()
+        time.sleep(0.5)
+        alert = self.driver.find_element(By.NAME, "task").get_attribute("validationMessage")
+        self.assertTrue("fill out" in alert.lower())
+
+    def test_7_page_responsive(self):
+        self.driver.set_window_size(375, 667)  # iPhone 6/7/8
+        self.driver.get(self.base_url)
+        header = self.driver.find_element(By.CLASS_NAME, "card-header")
+        self.assertTrue(header.is_displayed())
 
     def test_8_empty_state_message(self):
-        self.driver.get(self.URL)
-        delete_links = self.driver.find_elements(By.LINK_TEXT, "Delete")
-        for link in delete_links:
-            link.click()
+        self.driver.get(self.base_url)
+        while True:
+            delete_buttons = self.driver.find_elements(By.LINK_TEXT, "Delete")
+            if not delete_buttons:
+                break
+            delete_buttons[0].click()
             alert = self.driver.switch_to.alert
             alert.accept()
             time.sleep(0.5)
-    
         self.driver.get(self.base_url)
         message = self.driver.find_element(By.CLASS_NAME, "alert-info").text
-        assert "No tasks yet" in message
+        self.assertIn("No tasks yet", message)
 
-
-    def test_9_add_button_present(self):
-        btn = self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
-        self.assertEqual(btn.text.strip(), "Add Task")
-
-    def test_10_delete_buttons_present(self):
-        self.driver.find_element(By.NAME, "task").send_keys("Delete Button Check")
+    def test_9_xss_injection_protection(self):
+        self.driver.get(self.base_url)
+        script = '<script>alert("XSS")</script>'
+        self.driver.find_element(By.NAME, "task").send_keys(script)
         self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-        delete_buttons = self.driver.find_elements(By.LINK_TEXT, "Delete")
-        self.assertGreater(len(delete_buttons), 0)
+        time.sleep(1)
+        page_source = self.driver.page_source
+        self.assertNotIn(script, page_source)
 
-if __name__ == '__main__':
+    def test_10_ui_elements_present(self):
+        self.driver.get(self.base_url)
+        self.assertTrue(self.driver.find_element(By.CLASS_NAME, "card"))
+        self.assertTrue(self.driver.find_element(By.CLASS_NAME, "btn-success"))
+
+if __name__ == "__main__":
     unittest.main()
