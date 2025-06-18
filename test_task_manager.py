@@ -4,7 +4,7 @@ from selenium.webdriver.chrome.options import Options
 import time
 import unittest
 
-# Replace with your deployed application URL
+
 URL = "http://16.16.28.38:8081/"
 
 class TaskManagerTest(unittest.TestCase):
@@ -41,7 +41,7 @@ class TaskManagerTest(unittest.TestCase):
     def test_4_add_multiple_tasks(self):
         tasks_to_add = ["Task A", "Task B", "Task C"]
         for task in tasks_to_add:
-            self.driver.get(self.base_url)
+            self.driver.get(self.URL)
             self.driver.find_element(By.NAME, "task").send_keys(task)
             self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
             time.sleep(0.5)
@@ -53,7 +53,7 @@ class TaskManagerTest(unittest.TestCase):
 
 
     def test_5_delete_task(self):
-        self.driver.get(self.base_url)
+        self.driver.get(self.URL)
         self.add_task("Delete Me")
     
         delete_button = self.driver.find_element(By.LINK_TEXT, "Delete")
@@ -81,7 +81,7 @@ class TaskManagerTest(unittest.TestCase):
         self.assertNotIn(xss, self.driver.page_source)
 
     def test_8_empty_state_message(self):
-        self.driver.get(self.base_url)
+        self.driver.get(self.URL)
         delete_links = self.driver.find_elements(By.LINK_TEXT, "Delete")
         for link in delete_links:
             link.click()
